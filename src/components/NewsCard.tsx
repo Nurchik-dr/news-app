@@ -1,6 +1,7 @@
 import { Image, Pressable, Text, View, StyleSheet } from 'react-native';
 import type { NewsArticle } from '../entities/news/types';
-import { useAppStore } from '../app/store';
+import { useAppSelector } from '../app/hooks';
+import { selectTheme } from '../features/ui/model/selectors';
 
 type Props = {
   item: NewsArticle;
@@ -10,10 +11,10 @@ type Props = {
 };
 
 export const NewsCard = ({ item, isFavorite, onOpen, onToggleFavorite }: Props) => {
-  const { state } = useAppStore();
+  const theme = useAppSelector(selectTheme);
 
   const colors =
-  state.theme === 'soft'
+  theme === 'soft'
     ? {
         card: '#E5E7EB',
         text: '#111827',

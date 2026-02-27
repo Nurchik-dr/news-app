@@ -1,15 +1,16 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useAppStore } from '../app/store';
+import { useAppDispatch } from '../app/hooks';
+import { authActions } from '../features/auth/model/authSlice';
 import { biometricLogin } from '../shared/auth/biometric';
 
 export const AuthScreen = () => {
-  const { dispatch } = useAppStore();
+  const dispatch = useAppDispatch();
 
   const onLogin = async () => {
     const ok = await biometricLogin();
 
     if (ok) {
-      dispatch({ type: 'LOGIN' });
+      dispatch(authActions.login());
     } else {
       alert('Биометрия недоступна или вход отменён');
     }

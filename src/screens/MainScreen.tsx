@@ -20,9 +20,20 @@ import * as DocumentPicker from 'expo-document-picker';
 // import * as FileSystem from 'expo-file-system';
 import * as FileSystem from 'expo-file-system/legacy';
 
-import { useAppStore } from '../app/store';
+import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { useNewsFeed } from '../entities/news/useNewsFeed';
 import type { NewsArticle } from '../entities/news/types';
+import {
+  selectFavoritesHydrated,
+  selectFavoritesMap,
+} from '../features/favorites/model/selectors';
+import {
+  clearFavoritesStorage,
+  toggleFavoriteAndPersist,
+} from '../features/favorites/model/favoritesThunks';
+import { authActions } from '../features/auth/model/authSlice';
+import { selectNotification, selectTheme } from '../features/ui/model/selectors';
+import { uiActions } from '../features/ui/model/uiSlice';
 
 import { NewsCard } from '../components/NewsCard';
 import { NewsModal } from '../components/NewsModal';
@@ -77,7 +88,12 @@ async function registerForNotificationsAsync(): Promise<string | null> {
 }
 
 export const MainScreen = () => {
-  const { state, dispatch, hydrated } = useAppStore();
+  const dispatch = useAppDispatch();
+  const hydrated = useAppSelector(selectFavoritesHydrated);
+  const favorites = useAppSelector(selectFavoritesMap);
+  const theme = useAppSelector(selectTheme);
+  const notification = useAppSelector(selectNotification);
+
   if (!hydrated) return null;
 
   const news = useNewsFeed();
@@ -94,7 +110,7 @@ export const MainScreen = () => {
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
   const colors = useMemo(() => {
-    if (state.theme === 'soft') {
+    if (theme === 'soft') {
       return {
         bg: '#F8FAFC',
         card: '#E5E7EB',
@@ -115,28 +131,35 @@ export const MainScreen = () => {
       primary: '#0EA5E9',
       danger: '#B91C1C',
     };
-  }, [state.theme]);
+  }, [theme]);
 
   useEffect(() => {
-    news.load(true);
+    void news.load(true);
   }, []);
 
   useEffect(() => {
-    (async () => {
+    let isMounted = true;
+
+    const register = async () => {
       const token = await registerForNotificationsAsync();
-      setPushToken(token);
+      if (isMounted) {
+        setPushToken(token);
+      }
 
       receivedListener.current =
         Notifications.addNotificationReceivedListener(() => { });
 
       responseListener.current =
         Notifications.addNotificationResponseReceivedListener(() => { });
+    };
 
-      return () => {
-        receivedListener.current?.remove();
-        responseListener.current?.remove();
-      };
-    })();
+    void register();
+
+    return () => {
+      isMounted = false;
+      receivedListener.current?.remove();
+      responseListener.current?.remove();
+    };
   }, []);
 
   const fireLocalNotification = async (title: string, body: string) => {
@@ -149,12 +172,9 @@ export const MainScreen = () => {
   const refresh = async () => {
     await news.load(true);
 
-    dispatch({
-      type: 'SHOW_NOTIFICATION',
-      payload: 'Новости успешно обновлены.',
-    });
+    dispatch(uiActions.showNotification('Новости успешно обновлены.'));
 
-    setTimeout(() => dispatch({ type: 'CLEAR_NOTIFICATION' }), 2500);
+    setTimeout(() => dispatch(uiActions.clearNotification()), 2500);
 
     await fireLocalNotification('Новости обновлены', 'Появились свежие статьи.');
   };
@@ -191,16 +211,14 @@ export const MainScreen = () => {
   // }
 
   const renderNewsCard = ({ item }: { item: NewsArticle }) => {
-    const isFavorite = Boolean(state.favorites[item.id]);
+    const isFavorite = Boolean(favorites[item.id]);
 
     return (
       <NewsCard
         item={item}
         isFavorite={isFavorite}
         onOpen={() => setSelectedArticle(item)}
-        onToggleFavorite={() =>
-          dispatch({ type: 'TOGGLE_FAVORITE', payload: item })
-        }
+        onToggleFavorite={() => dispatch(toggleFavoriteAndPersist(item))}
       />
     );
   };
@@ -253,7 +271,7 @@ export const MainScreen = () => {
 
   const favoritesList = (
     <FlatList
-      data={Object.values(state.favorites)}
+      data={Object.values(favorites)}
       keyExtractor={(item) => item.id}
       renderItem={renderNewsCard}
       ListEmptyComponent={
@@ -278,10 +296,10 @@ export const MainScreen = () => {
 
       <Pressable
         style={[styles.actionButton, { backgroundColor: colors.primary }]}
-        onPress={() => dispatch({ type: 'TOGGLE_THEME' })}
+        onPress={() => dispatch(uiActions.toggleTheme())}
       >
         <Text style={styles.actionText}>
-          Тема: {state.theme === 'dark' ? 'Тёмная' : 'Серая'}
+          Тема: {theme === 'dark' ? 'Тёмная' : 'Серая'}
         </Text>
       </Pressable>
 
@@ -314,7 +332,10 @@ export const MainScreen = () => {
 
       <Pressable
         style={[styles.actionButton, { backgroundColor: colors.danger }]}
-        onPress={() => dispatch({ type: 'LOGOUT' })}
+        onPress={() => {
+          dispatch(authActions.logout());
+          void dispatch(clearFavoritesStorage());
+        }}
       >
         <Text style={styles.actionText}>Выйти</Text>
       </Pressable>
@@ -323,8 +344,8 @@ export const MainScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      {state.notification ? (
-        <Text style={styles.notification}>{state.notification}</Text>
+      {notification ? (
+        <Text style={styles.notification}>{notification}</Text>
       ) : null}
 
       <View style={styles.tabRow}>

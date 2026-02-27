@@ -2,7 +2,9 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { AppStoreProvider, useAppStore } from './src/app/store';
+import { useAppSelector } from './src/app/hooks';
+import { AppStoreProvider } from './src/app/providers/AppStoreProvider';
+import { selectIsAuthenticated } from './src/features/auth/model/selectors';
 import { AuthScreen } from './src/screens/AuthScreen';
 import { MainScreen } from './src/screens/MainScreen';
 import { ArticleWebViewScreen } from './src/screens/ArticleWebViewScreen';
@@ -16,12 +18,12 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
-  const { state } = useAppStore();
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!state.isAuthenticated ? (
+        {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthScreen} />
         ) : (
           <>

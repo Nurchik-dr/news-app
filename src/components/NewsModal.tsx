@@ -1,9 +1,10 @@
 import { Modal, Pressable, SafeAreaView, Text, StyleSheet } from 'react-native';
 import type { NewsArticle } from '../entities/news/types';
-import { useAppStore } from '../app/store';
+import { useAppSelector } from '../app/hooks';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../App';
+import { selectTheme } from '../features/ui/model/selectors';
 
 type Props = {
   article: NewsArticle | null;
@@ -11,11 +12,11 @@ type Props = {
 };
 
 export const NewsModal = ({ article, onClose }: Props) => {
-  const { state } = useAppStore();
+  const theme = useAppSelector(selectTheme);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const colors =
-    state.theme === 'soft'
+    theme === 'soft'
       ? {
           bg: '#F8FAFC',
           text: '#111827',
